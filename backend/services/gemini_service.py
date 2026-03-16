@@ -87,17 +87,23 @@ async def _analyze_one(item: EquipmentItem, model) -> ProcessedEquipment:
     async with _SEMAPHORE:
         try:
             prompt = _build_prompt(item)
-            # Run synchronous Gemini call in executor to avoid blocking event loop
+            # Run synchronous Gemini call in executor; enforce 60s timeout
             loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: model.generate_content(
-                    prompt,
-                    tools=[{"google_search": {}}],
+            response = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: model.generate_content(
+                        prompt,
+                        tools=[{"google_search": {}}],
+                    ),
                 ),
+                timeout=60.0,
             )
             raw_text = response.text
             data = _extract_json(raw_text)
+        except asyncio.TimeoutError:
+            print(f"[Gemini] Timeout for {item.brand} {item.model}")
+            data = _fallback_result(item)
         except Exception as exc:
             print(f"[Gemini] Error for {item.brand} {item.model}: {exc}")
             data = _fallback_result(item)

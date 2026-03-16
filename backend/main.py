@@ -11,14 +11,32 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from routers import auth, calendar, export, process, spreadsheet
 
+# Validate required env vars at startup
+_REQUIRED_ENV = [
+    "GEMINI_API_KEY",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "SESSION_SECRET_KEY",
+    "GOOGLE_REDIRECT_URI",
+    "FRONTEND_URL",
+]
+_missing = [v for v in _REQUIRED_ENV if not os.environ.get(v)]
+if _missing:
+    raise RuntimeError(
+        f"Missing required environment variables: {', '.join(_missing)}. "
+        "Copy backend/.env.example to backend/.env and fill in all values."
+    )
+
 app = FastAPI(title="Equipment Maintenance Manager", version="1.0.0")
+
+_https_only = os.getenv("HTTPS_ONLY", "false").lower() == "true"
 
 # Session middleware (must be added before CORS)
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.environ.get("SESSION_SECRET_KEY", "change-me-in-production"),
+    secret_key=os.environ["SESSION_SECRET_KEY"],
     max_age=86400,  # 24 hours
-    https_only=False,  # Set True in production with HTTPS
+    https_only=_https_only,
     same_site="lax",
 )
 
