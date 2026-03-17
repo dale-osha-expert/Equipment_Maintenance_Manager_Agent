@@ -6,8 +6,8 @@ import re
 from datetime import date, timedelta
 from typing import Optional
 
-import google.generativeai as genai
-from google.generativeai import protos
+from google import genai
+from google.genai import types
 
 from models import EquipmentItem, ProcessedEquipment
 
@@ -16,13 +16,7 @@ def _init_client():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY not set")
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(
-        model_name="gemini-2.5-flash-lite",
-        tools=[protos.Tool(
-            google_search_retrieval=protos.GoogleSearchRetrieval()
-        )],
-    )
+    return genai.Client(api_key=api_key)
 
 
 def _build_batch_prompt(items: list[EquipmentItem]) -> str:
@@ -99,14 +93,22 @@ def _to_processed(item: EquipmentItem, data: dict) -> ProcessedEquipment:
 
 
 async def analyze_equipment(items: list[EquipmentItem]) -> list[ProcessedEquipment]:
-    model = _init_client()
+    client = _init_client()
     prompt = _build_batch_prompt(items)
     loop = asyncio.get_event_loop()
 
     try:
-        # Single request for all items; 120s timeout to cover larger batches
         response = await asyncio.wait_for(
-            loop.run_in_executor(None, lambda: model.generate_content(prompt)),
+            loop.run_in_executor(
+                None,
+                lambda: client.models.generate_content(
+                    model="gemini-2.5-flash-lite",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        tools=[types.Tool(google_search=types.GoogleSearch())],
+                    ),
+                ),
+            ),
             timeout=120.0,
         )
         results_data = _extract_json_array(response.text)
