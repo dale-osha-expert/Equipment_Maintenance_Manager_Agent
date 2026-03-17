@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from typing import Optional
 
 import google.generativeai as genai
+from google.generativeai import protos
 
 from models import EquipmentItem, ProcessedEquipment
 
@@ -18,9 +19,14 @@ def _init_client():
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY not set")
     genai.configure(api_key=api_key)
+    # google_search_retrieval is the correct tool name for google-generativeai SDK.
+    # response_mime_type is omitted here because grounded responses include citation
+    # metadata that breaks strict JSON output; _extract_json handles the parsing.
     return genai.GenerativeModel(
         model_name="gemini-2.0-flash",
-        generation_config={"response_mime_type": "application/json"},
+        tools=[protos.Tool(
+            google_search_retrieval=protos.GoogleSearchRetrieval()
+        )],
     )
 
 
@@ -92,10 +98,7 @@ async def _analyze_one(item: EquipmentItem, model) -> ProcessedEquipment:
             response = await asyncio.wait_for(
                 loop.run_in_executor(
                     None,
-                    lambda: model.generate_content(
-                        prompt,
-                        tools=[{"google_search": {}}],
-                    ),
+                    lambda: model.generate_content(prompt),
                 ),
                 timeout=60.0,
             )
