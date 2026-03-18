@@ -101,6 +101,11 @@ def parse_xlsx_bytes(data: bytes) -> list[EquipmentItem]:
     return parse_dataframe(df)
 
 
+def parse_csv_bytes(data: bytes) -> list[EquipmentItem]:
+    df = pd.read_csv(io.BytesIO(data))
+    return parse_dataframe(df)
+
+
 def parse_sheets_values(values: list[list]) -> list[EquipmentItem]:
     """Parse raw values from Google Sheets API (list of rows)."""
     if not values:

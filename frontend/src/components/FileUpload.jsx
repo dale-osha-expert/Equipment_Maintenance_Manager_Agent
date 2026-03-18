@@ -29,7 +29,7 @@ const s = {
   },
 }
 
-export default function FileUpload({ onXlsxUpload, onSheetsImport, loading, authStatus }) {
+export default function FileUpload({ onXlsxUpload, onSheetsImport, loading }) {
   const [dragging, setDragging] = useState(false)
   const [sheetUrl, setSheetUrl] = useState('')
   const fileRef = useRef()
@@ -82,11 +82,9 @@ export default function FileUpload({ onXlsxUpload, onSheetsImport, loading, auth
       <div>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 6 }}>
           Import from Google Sheets
-          {!authStatus?.authenticated && (
-            <span style={{ marginLeft: 8, color: '#a0aec0', fontWeight: 400 }}>
-              (Connect Google account first)
-            </span>
-          )}
+          <span style={{ marginLeft: 8, color: '#a0aec0', fontWeight: 400 }}>
+            (sheet must be shared as "Anyone with the link can view")
+          </span>
         </div>
         <div style={s.sheetsRow}>
           <input
@@ -94,12 +92,12 @@ export default function FileUpload({ onXlsxUpload, onSheetsImport, loading, auth
             placeholder="https://docs.google.com/spreadsheets/d/..."
             value={sheetUrl}
             onChange={(e) => setSheetUrl(e.target.value)}
-            disabled={loading || !authStatus?.authenticated}
+            disabled={loading}
           />
           <button
-            style={{ ...s.btn, opacity: (!authStatus?.authenticated || loading) ? 0.5 : 1 }}
+            style={{ ...s.btn, opacity: loading ? 0.5 : 1 }}
             onClick={handleSheetsImport}
-            disabled={!authStatus?.authenticated || loading || !sheetUrl.trim()}
+            disabled={loading || !sheetUrl.trim()}
           >
             Import
           </button>

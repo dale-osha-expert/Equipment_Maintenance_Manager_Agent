@@ -1,10 +1,12 @@
 from __future__ import annotations
+import re
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+import httpx
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from models import SheetsImportRequest
-from services.spreadsheet_parser import parse_xlsx_bytes, parse_sheets_values
+from services.spreadsheet_parser import parse_csv_bytes, parse_xlsx_bytes
 
 router = APIRouter(tags=["spreadsheet"])
 
@@ -22,42 +24,27 @@ async def upload_xlsx(file: UploadFile = File(...)):
 
 
 @router.post("/import-sheets")
-async def import_sheets(body: SheetsImportRequest, request: Request):
-    creds = request.session.get("google_credentials")
-    if not creds:
-        raise HTTPException(status_code=401, detail="Not authenticated with Google")
-
-    # Extract spreadsheet ID from URL
-    import re
+async def import_sheets(body: SheetsImportRequest):
     match = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", body.sheet_url)
     if not match:
         raise HTTPException(status_code=400, detail="Invalid Google Sheets URL")
     spreadsheet_id = match.group(1)
 
+    export_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv"
     try:
-        from google.oauth2.credentials import Credentials
-        from googleapiclient.discovery import build
+        resp = httpx.get(export_url, follow_redirects=True, timeout=15.0)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch spreadsheet: {exc}")
 
-        google_creds = Credentials(
-            token=creds["token"],
-            refresh_token=creds.get("refresh_token"),
-            token_uri=creds.get("token_uri", "https://oauth2.googleapis.com/token"),
-            client_id=creds.get("client_id"),
-            client_secret=creds.get("client_secret"),
-            scopes=creds.get("scopes"),
+    if resp.status_code != 200 or "text/csv" not in resp.headers.get("content-type", ""):
+        raise HTTPException(
+            status_code=400,
+            detail="Could not access the spreadsheet. Make sure it is shared as 'Anyone with the link can view'.",
         )
-        service = build("sheets", "v4", credentials=google_creds)
-        result = service.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id,
-            range="A1:Z1000",
-        ).execute()
-        values = result.get("values", [])
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Failed to fetch Google Sheet: {exc}")
 
     try:
-        items = parse_sheets_values(values)
+        items = parse_csv_bytes(resp.content)
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Failed to parse sheet data: {exc}")
+        raise HTTPException(status_code=422, detail=f"Failed to parse sheet: {exc}")
 
     return JSONResponse([item.model_dump(mode="json") for item in items])

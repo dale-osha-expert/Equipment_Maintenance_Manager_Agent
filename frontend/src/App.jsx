@@ -200,7 +200,6 @@ export default function App() {
             onXlsxUpload={handleXlsxUpload}
             onSheetsImport={handleSheetsImport}
             loading={isLoading}
-            authStatus={authStatus}
           />
         </div>
 
