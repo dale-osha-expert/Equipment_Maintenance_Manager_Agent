@@ -138,7 +138,7 @@ export default function EquipmentTable({ equipment, isProcessed, authStatus, onA
 
                   if (col === 'manual_source') {
                     const src = item[col]
-                    if (!src) return <td key={col} style={tdStyle}><span style={s.noDate}>—</span></td>
+                    if (!src || src === 'null') return <td key={col} style={tdStyle}><span style={s.noDate}>—</span></td>
                     const isUrl = src.startsWith('http')
                     return (
                       <td key={col} style={tdStyle}>
@@ -147,7 +147,7 @@ export default function EquipmentTable({ equipment, isProcessed, authStatus, onA
                             View manual ↗
                           </a>
                         ) : (
-                          <span style={s.source}>{src}</span>
+                          <span style={s.reasoning}>{src}</span>
                         )}
                       </td>
                     )

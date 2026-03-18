@@ -41,7 +41,7 @@ def _build_batch_prompt(items: list[EquipmentItem]) -> str:
 
     return f"""You are a warehouse equipment maintenance scheduling expert. Today's date is {today}.
 
-For each of the following {len(items)} equipment items, use Google Search to find the manufacturer's recommended maintenance interval from official manuals or guidelines. Then calculate the next maintenance date.
+For each equipment item below, search for the manufacturer's official recommended PERIODIC maintenance interval (calendar-based, e.g. every 6 months or every 12 months). Use the primary scheduled service interval from the official service manual or the manufacturer's maintenance schedule page — not the most frequent minor check (e.g. daily/weekly inspections) and not hour-based intervals. Convert hour-based intervals to months assuming 8-hour workdays and 22 working days per month.
 
 Date calculation rules:
 - If last maintenance date is known: next_date = last_maintenance_date + interval_months
@@ -50,12 +50,14 @@ Date calculation rules:
 
 {equipment_list}
 
-Respond ONLY with a valid JSON array containing exactly {len(items)} objects, one per item in the same order. Each object must use this exact format:
+For manual_source you MUST provide the direct URL (starting with https://) of the official page where the maintenance schedule is documented (manufacturer site, official PDF, or official product page). If you cannot find a real URL, use null.
+
+Respond ONLY with a valid JSON array containing exactly {len(items)} objects, one per item in the same order:
 {{
   "interval_months": <integer>,
   "next_maintenance_date": "<YYYY-MM-DD>",
-  "manual_source": "<URL or description of the manual/guideline found>",
-  "reasoning": "<1-2 sentence explanation>"
+  "manual_source": "<https://... URL or null>",
+  "reasoning": "<cite the specific interval found, e.g. 'Toyota 8FGCU25 service manual specifies 250-hour / 6-month periodic inspection'>"
 }}
 
 Return only the JSON array, no other text."""
@@ -106,6 +108,7 @@ async def analyze_equipment(items: list[EquipmentItem]) -> list[ProcessedEquipme
                     contents=prompt,
                     config=types.GenerateContentConfig(
                         tools=[types.Tool(google_search=types.GoogleSearch())],
+                        temperature=0,
                     ),
                 ),
             ),
