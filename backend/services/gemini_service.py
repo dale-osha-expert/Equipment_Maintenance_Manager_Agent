@@ -50,13 +50,13 @@ Date calculation rules:
 
 {equipment_list}
 
-For manual_source you MUST provide the direct URL (starting with https://) of the official page where the maintenance schedule is documented (manufacturer site, official PDF, or official product page). If you cannot find a real URL, use null.
+For manual_source, provide the exact name/title of the official source document or page where this interval is documented (e.g. "Toyota 8FGCU25 Series Forklift Periodic Maintenance Guide"). Do not provide URLs.
 
 Respond ONLY with a valid JSON array containing exactly {len(items)} objects, one per item in the same order:
 {{
   "interval_months": <integer>,
   "next_maintenance_date": "<YYYY-MM-DD>",
-  "manual_source": "<https://... URL or null>",
+  "manual_source": "<exact document or source title>",
   "reasoning": "<cite the specific interval found, e.g. 'Toyota 8FGCU25 service manual specifies 250-hour / 6-month periodic inspection'>"
 }}
 
@@ -104,7 +104,7 @@ async def analyze_equipment(items: list[EquipmentItem]) -> list[ProcessedEquipme
             loop.run_in_executor(
                 None,
                 lambda: client.models.generate_content(
-                    model="gemini-2.5-flash-lite",
+                    model="gemini-2.5-flash",
                     contents=prompt,
                     config=types.GenerateContentConfig(
                         tools=[types.Tool(google_search=types.GoogleSearch())],

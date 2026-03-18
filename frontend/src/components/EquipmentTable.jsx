@@ -1,5 +1,25 @@
 import React from 'react'
 
+function buildCalendarUrl(item) {
+  if (!item.next_maintenance_date) return null
+  const dateStr = item.next_maintenance_date.replace(/-/g, '')
+  const nextDay = new Date(item.next_maintenance_date + 'T00:00:00')
+  nextDay.setDate(nextDay.getDate() + 1)
+  const endStr = nextDay.toISOString().slice(0, 10).replace(/-/g, '')
+  const details = [
+    item.equipment_type ? `Equipment Type: ${item.equipment_type}` : null,
+    item.maintenance_interval_months ? `Interval: ${item.maintenance_interval_months} months` : null,
+    item.gemini_reasoning,
+  ].filter(Boolean).join('\n')
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `Maintenance: ${[item.brand, item.model].filter(Boolean).join(' ')}`,
+    dates: `${dateStr}/${endStr}`,
+    details,
+  })
+  return `https://calendar.google.com/calendar/r/eventedit?${params}`
+}
+
 const s = {
   wrapper: { overflowX: 'auto', borderRadius: 10, border: '1px solid #e2e8f0' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13, background: '#fff' },
@@ -35,7 +55,7 @@ function isOverdue(dateStr) {
   return new Date(dateStr) < new Date()
 }
 
-export default function EquipmentTable({ equipment, isProcessed, authStatus, onAddToCalendar, addingIds }) {
+export default function EquipmentTable({ equipment, isProcessed }) {
   if (!equipment || equipment.length === 0) return null
 
   const RAW_COLS = ['equipment_type', 'brand', 'model', 'installation_date', 'last_maintenance_date']
@@ -77,29 +97,20 @@ export default function EquipmentTable({ equipment, isProcessed, authStatus, onA
           {equipment.map((item, idx) => {
             const tdStyle = idx % 2 === 0 ? s.td : s.tdAlt
             const overdue = isOverdue(item.next_maintenance_date)
-            const isAdded = !!item.calendar_event_id
-            const isAdding = addingIds?.has(item.id)
 
             return (
               <tr key={item.id}>
                 {cols.map(col => {
                   if (col === 'actions') {
+                    const calUrl = buildCalendarUrl(item)
                     return (
                       <td key={col} style={tdStyle}>
-                        {isAdded ? (
-                          <span style={s.addedBadge}>✓ Added</span>
+                        {calUrl ? (
+                          <a href={calUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                            <button style={s.calBtn}>📅 Add</button>
+                          </a>
                         ) : (
-                          <button
-                            style={{
-                              ...s.calBtn,
-                              opacity: (!authStatus?.authenticated || isAdding || !item.next_maintenance_date) ? 0.5 : 1,
-                            }}
-                            onClick={() => onAddToCalendar(item)}
-                            disabled={!authStatus?.authenticated || isAdding || !item.next_maintenance_date}
-                            title={!authStatus?.authenticated ? 'Connect Google account first' : ''}
-                          >
-                            {isAdding ? '...' : '📅 Add'}
-                          </button>
+                          <button style={{ ...s.calBtn, opacity: 0.4 }} disabled>📅 Add</button>
                         )}
                       </td>
                     )
@@ -139,16 +150,12 @@ export default function EquipmentTable({ equipment, isProcessed, authStatus, onA
                   if (col === 'manual_source') {
                     const src = item[col]
                     if (!src || src === 'null') return <td key={col} style={tdStyle}><span style={s.noDate}>—</span></td>
-                    const isUrl = src.startsWith('http')
+                    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(src)}`
                     return (
                       <td key={col} style={tdStyle}>
-                        {isUrl ? (
-                          <a href={src} target="_blank" rel="noreferrer" style={s.source}>
-                            View manual ↗
-                          </a>
-                        ) : (
-                          <span style={s.reasoning}>{src}</span>
-                        )}
+                        <a href={searchUrl} target="_blank" rel="noreferrer" style={s.source}>
+                          {src} ↗
+                        </a>
                       </td>
                     )
                   }

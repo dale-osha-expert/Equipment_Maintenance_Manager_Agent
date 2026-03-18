@@ -41,8 +41,3 @@ export const exportXlsx = async (equipment) => {
   window.URL.revokeObjectURL(url)
 }
 
-export const addToCalendar = (equipment) =>
-  api.post('/calendar/add', { equipment }).then(r => r.data)
-
-export const addAllToCalendar = (equipment) =>
-  api.post('/calendar/add-all', { equipment }).then(r => r.data)

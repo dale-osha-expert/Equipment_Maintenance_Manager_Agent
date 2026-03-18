@@ -5,8 +5,6 @@ import EquipmentTable from './components/EquipmentTable.jsx'
 import FileUpload from './components/FileUpload.jsx'
 import StatusBadge from './components/StatusBadge.jsx'
 import {
-  addAllToCalendar,
-  addToCalendar,
   checkAuthStatus,
   exportXlsx,
   importSheets,
@@ -48,7 +46,6 @@ export default function App() {
   const [status, setStatus] = useState('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
-  const [addingIds, setAddingIds] = useState(new Set())
 
   const refreshAuth = useCallback(async () => {
     try {
@@ -126,50 +123,47 @@ export default function App() {
     }
   }
 
-  const handleAddToCalendar = async (item) => {
-    setAddingIds(prev => new Set(prev).add(item.id))
-    try {
-      const result = await addToCalendar(item)
-      setProcessedEquipment(prev =>
-        prev.map(e => e.id === item.id ? { ...e, calendar_event_id: result.event_id } : e)
-      )
-      setSuccessMsg(`Maintenance reminder added to Google Calendar!`)
-      setTimeout(() => setSuccessMsg(''), 3000)
-    } catch (err) {
-      handleError(err.response?.data?.detail || 'Failed to add calendar event')
-    } finally {
-      setAddingIds(prev => { const s = new Set(prev); s.delete(item.id); return s })
-    }
-  }
-
-  const handleAddAll = async () => {
-    setErrorMsg('')
-    const eligible = processedEquipment.filter(e => e.next_maintenance_date && !e.calendar_event_id)
+  const handleAddAll = () => {
+    const eligible = processedEquipment.filter(e => e.next_maintenance_date)
     if (!eligible.length) {
-      setSuccessMsg('All events already added to calendar!')
+      setSuccessMsg('No equipment with scheduled maintenance dates.')
+      setTimeout(() => setSuccessMsg(''), 3000)
       return
     }
-    const ids = new Set(eligible.map(e => e.id))
-    setAddingIds(ids)
-    try {
-      const result = await addAllToCalendar(processedEquipment)
-      const resultMap = result.results || {}
-      setProcessedEquipment(prev =>
-        prev.map(e => {
-          const eventId = resultMap[e.id]
-          if (eventId && !eventId.startsWith('error:')) {
-            return { ...e, calendar_event_id: eventId }
-          }
-          return e
-        })
+    const lines = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0',
+      'PRODID:-//Equipment Maintenance Manager//EN',
+      'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    ]
+    eligible.forEach(e => {
+      const dateStr = e.next_maintenance_date.replace(/-/g, '')
+      const nextDay = new Date(e.next_maintenance_date + 'T00:00:00')
+      nextDay.setDate(nextDay.getDate() + 1)
+      const endStr = nextDay.toISOString().slice(0, 10).replace(/-/g, '')
+      const desc = [
+        e.maintenance_interval_months ? `Interval: ${e.maintenance_interval_months} months` : null,
+        e.gemini_reasoning,
+      ].filter(Boolean).join('\\n')
+      lines.push(
+        'BEGIN:VEVENT',
+        `UID:maintenance-${e.id}@equipment-manager`,
+        `DTSTART;VALUE=DATE:${dateStr}`,
+        `DTEND;VALUE=DATE:${endStr}`,
+        `SUMMARY:Maintenance: ${[e.brand, e.model].filter(Boolean).join(' ')}`,
+        `DESCRIPTION:${desc}`,
+        'END:VEVENT',
       )
-      setSuccessMsg(`${Object.keys(resultMap).length} maintenance reminder(s) added to Google Calendar!`)
-      setTimeout(() => setSuccessMsg(''), 4000)
-    } catch (err) {
-      handleError(err.response?.data?.detail || 'Failed to add calendar events')
-    } finally {
-      setAddingIds(new Set())
-    }
+    })
+    lines.push('END:VCALENDAR')
+    const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'maintenance_schedule.ics'
+    a.click()
+    URL.revokeObjectURL(url)
+    setSuccessMsg(`Downloaded .ics file with ${eligible.length} maintenance event(s).`)
+    setTimeout(() => setSuccessMsg(''), 4000)
   }
 
   const handleReset = () => {
@@ -178,7 +172,6 @@ export default function App() {
     setStatus('idle')
     setErrorMsg('')
     setSuccessMsg('')
-    setAddingIds(new Set())
   }
 
   const isLoading = status === 'uploading' || status === 'processing'
@@ -242,9 +235,6 @@ export default function App() {
             <EquipmentTable
               equipment={displayEquipment}
               isProcessed={isProcessed}
-              authStatus={authStatus}
-              onAddToCalendar={handleAddToCalendar}
-              addingIds={addingIds}
             />
 
             <ActionBar

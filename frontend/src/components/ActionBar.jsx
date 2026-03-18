@@ -28,8 +28,6 @@ export default function ActionBar({
   onAddAll,
   onReset,
 }) {
-  const calDisabled = !authStatus?.authenticated || !hasProcessed || loading
-
   return (
     <div style={s.bar}>
       {hasRawData && !hasProcessed && (
@@ -52,12 +50,11 @@ export default function ActionBar({
             ⬇ Download XLSX
           </button>
           <button
-            style={{ ...s.btn, ...s.calAllBtn, opacity: calDisabled ? 0.5 : 1 }}
+            style={{ ...s.btn, ...s.calAllBtn, opacity: !hasProcessed || loading ? 0.5 : 1 }}
             onClick={onAddAll}
-            disabled={calDisabled}
-            title={!authStatus?.authenticated ? 'Connect Google account to add calendar events' : ''}
+            disabled={!hasProcessed || loading}
           >
-            📅 Add All to Calendar
+            📅 Download .ics Calendar
           </button>
         </>
       )}
