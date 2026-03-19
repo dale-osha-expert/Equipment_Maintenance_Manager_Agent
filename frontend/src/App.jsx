@@ -1,11 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import ActionBar from './components/ActionBar.jsx'
-import AuthButton from './components/AuthButton.jsx'
 import EquipmentTable from './components/EquipmentTable.jsx'
 import FileUpload from './components/FileUpload.jsx'
 import StatusBadge from './components/StatusBadge.jsx'
 import {
-  checkAuthStatus,
   exportXlsx,
   importSheets,
   processEquipment,
@@ -40,36 +38,11 @@ const s = {
 }
 
 export default function App() {
-  const [authStatus, setAuthStatus] = useState(null)
   const [rawEquipment, setRawEquipment] = useState([])
   const [processedEquipment, setProcessedEquipment] = useState([])
   const [status, setStatus] = useState('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
-
-  const refreshAuth = useCallback(async () => {
-    try {
-      const data = await checkAuthStatus()
-      setAuthStatus(data)
-    } catch {
-      setAuthStatus({ authenticated: false, email: '' })
-    }
-  }, [])
-
-  useEffect(() => {
-    refreshAuth()
-    // Handle OAuth redirect params
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('auth') === 'success') {
-      refreshAuth()
-      setSuccessMsg('Google account connected successfully!')
-      window.history.replaceState({}, '', '/')
-      setTimeout(() => setSuccessMsg(''), 4000)
-    } else if (params.get('auth') === 'error') {
-      setErrorMsg(`Google auth failed: ${params.get('reason') || 'unknown error'}`)
-      window.history.replaceState({}, '', '/')
-    }
-  }, [refreshAuth])
 
   const handleError = (msg) => {
     setErrorMsg(msg)
@@ -189,7 +162,6 @@ export default function App() {
             <div style={s.logoSub}>Powered by Google Gemini</div>
           </div>
         </div>
-        <AuthButton authStatus={authStatus} onAuthChange={refreshAuth} />
       </header>
 
       <main style={s.main}>
@@ -240,7 +212,6 @@ export default function App() {
               hasRawData={rawEquipment.length > 0}
               hasProcessed={isProcessed}
               loading={isLoading}
-              authStatus={authStatus}
               equipmentCount={displayEquipment.length}
               onAnalyze={handleAnalyze}
               onExport={handleExport}

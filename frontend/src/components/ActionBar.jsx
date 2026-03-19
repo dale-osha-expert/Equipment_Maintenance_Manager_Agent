@@ -21,7 +21,6 @@ export default function ActionBar({
   hasRawData,
   hasProcessed,
   loading,
-  authStatus,
   equipmentCount,
   onAnalyze,
   onExport,

@@ -4,16 +4,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 const api = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true, // Required for session cookie
 })
-
-export const checkAuthStatus = () => api.get('/auth/status').then(r => r.data)
-
-export const loginWithGoogle = () => {
-  window.location.href = `${BASE_URL}/auth/google`
-}
-
-export const logout = () => api.post('/auth/logout').then(r => r.data)
 
 export const uploadXlsx = (file) => {
   const form = new FormData()
